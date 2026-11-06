@@ -5,7 +5,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { locatePackage, distPath } from '../lib/locate.mjs';
+import { locatePackage, distPath, readSettings, writeSettings } from '../lib/locate.mjs';
 import { inspect } from '../lib/theme.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -23,7 +23,20 @@ function main() {
     process.stdout.write(`[beautify] 跳过：dist 结构不匹配（${state.reason}）\n`);
     return;
   }
-  if (state.patched) return;
+  if (state.patched) {
+    // 补丁在位，但插件升级会换 cache 目录，statusLine 指过去就失效了，顺手校正。
+    try {
+      const settings = readSettings();
+      const want = `"${process.execPath}" "${path.join(here, '..', 'lib', 'statusbar.cjs')}"`;
+      if (!settings.statusLine || settings.statusLine.command !== want) {
+        settings.statusLine = { type: 'command', command: want, padding: 0 };
+        writeSettings(settings);
+      }
+    } catch {
+      /* settings 读不了就算了 */
+    }
+    return;
+  }
   try {
     execFileSync(process.execPath, [path.join(here, 'install.mjs')], {
       stdio: 'ignore',
