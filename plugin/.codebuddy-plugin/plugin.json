@@ -1,0 +1,9 @@
+{
+  "name": "codebuddy-cli-beautify",
+  "version": "1.0.0",
+  "description": "obsidian 配色 + omp 风格状态栏，一键美化 CodeBuddy CLI",
+  "author": {
+    "name": "local"
+  },
+  "license": "MIT"
+}

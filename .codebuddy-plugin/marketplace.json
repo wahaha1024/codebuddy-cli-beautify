@@ -1,0 +1,9 @@
+{
+  "name": "local-beautify",
+  "plugins": [
+    {
+      "name": "codebuddy-cli-beautify",
+      "source": "./plugin"
+    }
+  ]
+}

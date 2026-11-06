@@ -1,0 +1,18 @@
+{
+  "name": "codebuddy-cli-beautify",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "obsidian 配色 + omp 风格状态栏，一键美化 CodeBuddy CLI",
+  "bin": {
+    "codebuddy-beautify": "./scripts/install.mjs"
+  },
+  "files": [
+    "lib",
+    "scripts",
+    ".codebuddy-plugin"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}
