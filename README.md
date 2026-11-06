@@ -15,6 +15,18 @@
 
 ## 安装
 
+### 方式一：作为 CodeBuddy 插件（推荐）
+
+```bash
+/plugin marketplace add wahaha1024/codebuddy-cli-beautify
+/plugin install codebuddy-cli-beautify@codebuddy-beautify
+/reload-plugins
+```
+
+插件自带 `SessionStart` 钩子：下一次会话启动时若检测到 bundle 还没打补丁，会自动跑一次安装并提示重启。也可以用 `/codebuddy-cli-beautify:beautify` 显式调用技能。
+
+### 方式二：直接跑安装脚本
+
 需要 Node ≥ 18，且已安装 CodeBuddy CLI。
 
 ```bash

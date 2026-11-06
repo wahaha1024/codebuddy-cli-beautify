@@ -1,9 +1,27 @@
 {
-  "name": "local-beautify",
+  "name": "codebuddy-beautify",
+  "owner": {
+    "name": "wahaha1024",
+    "url": "https://github.com/wahaha1024"
+  },
+  "description": "CodeBuddy CLI 外观插件市场：omp obsidian 紫配色 + 多色 powerline 状态栏",
+  "version": "1.0.0",
   "plugins": [
     {
       "name": "codebuddy-cli-beautify",
-      "source": "./plugin"
+      "source": "./plugin",
+      "description": "obsidian 紫配色 + omp 风格 powerline 状态栏，一键美化 CodeBuddy CLI",
+      "version": "1.0.0",
+      "license": "MIT",
+      "keywords": [
+        "theme",
+        "statusline",
+        "omp",
+        "obsidian",
+        "powerline",
+        "beautify"
+      ],
+      "category": "appearance"
     }
   ]
 }
