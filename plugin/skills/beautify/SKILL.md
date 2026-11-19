@@ -5,7 +5,7 @@ description: 给 CodeBuddy CLI 打上 omp obsidian 紫配色与多色 powerline 
 
 # CodeBuddy CLI 美化
 
-插件自带 `SessionStart` 钩子：**已安装即自动生效**。用户首次启用插件后的下一次会话启动，`scripts/ensure.mjs` 会检测 `dist/codebuddy.js` 里有没有主题补丁，没有就跑一次完整安装并提示重启。
+插件自带 `SessionStart` 钩子：**已安装即自动生效**。用户首次启用插件后的下一次会话启动，`scripts/ensure.mjs` 会检测 `dist/codebuddy.js` 里 6 个主题的补丁是否齐全，缺哪个补哪个并提示重启。亮色主题（`light` / `light-ansi` / `light-colorblind`）会自动用高对比深紫配色，状态栏也随当前主题切换明暗。
 
 手动操作都用插件自带的脚本（`${CODEBUDDY_PLUGIN_ROOT}` 是插件安装目录）：
 
@@ -29,12 +29,12 @@ node "${CODEBUDDY_PLUGIN_ROOT}/scripts/uninstall.mjs"
 ## 关键前提
 
 - 终端必须支持真彩，且环境里不能有 `NO_COLOR`——它会让 codebuddy 走全空主题，看起来“补丁没生效”。
-- 改的是 `@tencent-ai/codebuddy-code` 包里的 `dist/codebuddy.js`；**升级 codebuddy 会覆盖它**，重跑 `install.mjs` 即可（脚本幂等，备份在 `dist/codebuddy.js.orig-beautify`）。
+- 改的是 `@tencent-ai/codebuddy-code` 包里的 `dist/codebuddy.js`；**升级 codebuddy 会覆盖它**，重跑 `install.mjs` 即可（脚本幂等，只补未打的主题，备份在 `dist/codebuddy.js.orig-beautify`）。安装不会覆盖用户已选的 `theme`。
 - 状态栏在 Windows Terminal 里不渲染（上游 TUI 不挂载该组件），Orca 等 Electron/PTY 终端正常。
 
 ## 换配色
 
-调色板在 `lib/theme.mjs` 的 `OBSIDIAN` 对象里，改完跑 `install.mjs --force`。`MARK` 常量是补丁指纹（用 logo 色判断是否已打），换 logo 色时同步改它，否则自检会报 `补丁自检失败`。
+调色板在 `lib/theme.mjs`：`OBSIDIAN`/`OBSIDIAN_DARK_COLORBLIND`（深色）、`OBSIDIAN_LIGHT`/`OBSIDIAN_LIGHT_COLORBLIND`（亮色），结构色在 `BASE.dark`/`BASE.light`。改完跑 `install.mjs --force`。`MARKS` 是补丁指纹（用 `logo.edge` 色判断是否已打），换 logo 色时同步改它，否则自检会报 `补丁自检失败`。状态栏配色在 `lib/statusbar.cjs` 的 `STATUS_HEX`/`POWERLINE_HEX`，按明暗两套；可用 `CODEBUDDY_BEAUTIFY_THEME` 强制覆盖。
 
 ## 状态栏开关
 
@@ -47,7 +47,7 @@ node "${CODEBUDDY_PLUGIN_ROOT}/scripts/uninstall.mjs"
 
 ## 排查顺序
 
-1. `status.mjs` 看 `patched` 是否为 true；false 说明 bundle 被升级覆盖了。
+1. `status.mjs` 看「主题配色」是否为 `6/6`；缺的项说明 bundle 被升级覆盖了，重跑 `install.mjs`。
 2. 看环境里有没有 `NO_COLOR`。
 3. 状态栏不显示：确认终端是 Orca 之类的 PTY，不是 Windows Terminal。
-4. 颜色不对：`git diff` 插件里的 `lib/theme.mjs`，确认 `MARK` 与实际 brand/logo 一致。
+4. 颜色不对：`git diff` 插件里的 `lib/theme.mjs`，确认 `MARKS` 与实际 brand/logo 一致；亮色主题下仍看不清，先确认终端背景也是亮的。

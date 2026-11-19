@@ -15,6 +15,7 @@
  *   CODEBUDDY_BEAUTIFY_CTX    上下文窗口大小（默认取 payload，其次 272000）
  *   CODEBUDDY_BEAUTIFY_STYLE  nerd | unicode | ascii（默认 unicode）
  *   CODEBUDDY_BEAUTIFY_COLOR  1 开启 ANSI 真彩（默认 0）
+ *   CODEBUDDY_BEAUTIFY_THEME  覆盖主题（dark | light，默认读 settings.json）
  */
 
 const fs = require('fs');
@@ -44,21 +45,98 @@ const SYMBOLS = {
   },
 };
 
-const PALETTE = {
-  accent: '\x1b[38;2;196;90;58m',
-  text: '\x1b[38;2;202;197;189m',
-  muted: '\x1b[38;2;90;82;75m',
-  dim: '\x1b[38;2;74;67;61m',
-  success: '\x1b[38;2;106;154;106m',
-  warn: '\x1b[38;2;217;118;81m',
-  info: '\x1b[38;2;111;143;174m',
-  reset: '\x1b[0m',
+// 状态栏配色分深浅两套，亮色主题下用深色文字和高对比深紫，避免白底看不清。
+const STATUS_HEX = {
+  dark: {
+    accent: '#c45a3a', text: '#cac5bd', muted: '#5a524b', dim: '#4a433d',
+    success: '#6a9a6a', warn: '#d97651', info: '#6f8fae',
+  },
+  light: {
+    accent: '#6a3fb0', text: '#1f2328', muted: '#57606a', dim: '#8b949e',
+    success: '#1a7f37', warn: '#9a6700', info: '#0b62b3',
+  },
 };
 
-function paint(text, colorName) {
+const POWERLINE_HEX = {
+  dark: {
+    bg: { accent: '#9d7aff', a: '#343a52', b: '#2a2f45' },
+    fg: {
+      onAccent: '#1a1b26', text: '#c0caf5', muted: '#565f89',
+      success: '#9ece6a', warn: '#e0af68', info: '#7aa2f7', accent: '#9d7aff',
+    },
+  },
+  light: {
+    bg: { accent: '#6a3fb0', a: '#eceff6', b: '#e3e7f0' },
+    fg: {
+      onAccent: '#ffffff', text: '#1f2328', muted: '#57606a',
+      success: '#1a7f37', warn: '#9a6700', info: '#0b62b3', accent: '#6a3fb0',
+    },
+  },
+};
+
+const RESET = '\x1b[0m';
+
+function channels(hex) {
+  const h = hex.replace('#', '');
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+function fg(hex) {
+  const [r, g, b] = channels(hex);
+  return `\x1b[38;2;${r};${g};${b}m`;
+}
+
+function bg(hex) {
+  const [r, g, b] = channels(hex);
+  return `\x1b[48;2;${r};${g};${b}m`;
+}
+
+function buildEsc(hexMap) {
+  const out = { reset: RESET };
+  for (const k of Object.keys(hexMap)) out[k] = fg(hexMap[k]);
+  return out;
+}
+
+function buildPowerline(hexMap) {
+  const out = { bg: {}, fg: {} };
+  for (const k of Object.keys(hexMap.bg)) out.bg[k] = bg(hexMap.bg[k]);
+  for (const k of Object.keys(hexMap.fg)) out.fg[k] = fg(hexMap.fg[k]);
+  return out;
+}
+
+const ESC = {
+  dark: buildEsc(STATUS_HEX.dark),
+  light: buildEsc(STATUS_HEX.light),
+};
+const POWERLINE = {
+  dark: buildPowerline(POWERLINE_HEX.dark),
+  light: buildPowerline(POWERLINE_HEX.light),
+};
+
+// statusLine 每几百毫秒调用一次，settings 按 mtime 缓存，主题切换后立即跟上。
+let themeCache = { mtime: -1, mode: 'dark' };
+function activeThemeMode() {
+  const override = String(process.env.CODEBUDDY_BEAUTIFY_THEME || '').toLowerCase();
+  if (override === 'light' || override.startsWith('light')) return 'light';
+  if (override === 'dark' || override.startsWith('dark')) return 'dark';
+  try {
+    const p = path.join(os.homedir(), '.codebuddy', 'settings.json');
+    const st = fs.statSync(p);
+    if (st.mtimeMs !== themeCache.mtime) {
+      let theme = 'dark';
+      try { theme = JSON.parse(fs.readFileSync(p, 'utf8')).theme || 'dark'; } catch { /* 用默认 */ }
+      themeCache = { mtime: st.mtimeMs, mode: String(theme).startsWith('light') ? 'light' : 'dark' };
+    }
+    return themeCache.mode;
+  } catch {
+    return themeCache.mode;
+  }
+}
+
+function paint(text, colorName, pal) {
   if (!process.env.CODEBUDDY_BEAUTIFY_COLOR) return text;
-  const c = PALETTE[colorName];
-  return c ? c + text + PALETTE.reset : text;
+  const c = pal[colorName];
+  return c ? c + text + pal.reset : text;
 }
 
 function readTailLines(filePath, bytes) {
@@ -219,6 +297,9 @@ function buildParts(state) {
   const style = String(process.env.CODEBUDDY_BEAUTIFY_STYLE || 'unicode').toLowerCase();
   const g = SYMBOLS[style] || SYMBOLS.unicode;
   const ctxSize = state.ctxSize || parseInt(process.env.CODEBUDDY_BEAUTIFY_CTX, 10) || 272000;
+  const mode = activeThemeMode();
+  const pal = ESC[mode];
+  const pl = POWERLINE[mode];
 
   const prompt = state.prompt || 0;
   const pct = state.usedPercentage != null
@@ -230,7 +311,7 @@ function buildParts(state) {
 
   // p 越大越先被裁掉；0 是必须保留的核心段
   const segs = [];
-  const add = (t, c, p, bg) => segs.push({ t, c, p, bg });
+  const add = (t, c, p, bgKey) => segs.push({ t, c, p, bgKey });
   if (state.model) add(g.model + ' ' + state.model, 'accent', 0, 'accent');
   if (dir) add(g.dir + ' ' + dir, 'text', 2);
   if (git) add(g.git + ' ' + git.branch + (git.dirty ? ' *' + git.dirty : ''), git.dirty ? 'warn' : 'success', 3);
@@ -252,23 +333,17 @@ function buildParts(state) {
   }
 
   if (powerline) {
-    const BG = { accent: '\x1b[48;2;157;122;255m', a: '\x1b[48;2;52;58;82m', b: '\x1b[48;2;42;47;69m' };
-    const FG = {
-      dark: '\x1b[38;2;26;27;38m', text: '\x1b[38;2;192;202;245m', muted: '\x1b[38;2;86;95;137m',
-      success: '\x1b[38;2;158;206;106m', warn: '\x1b[38;2;224;175;104m', info: '\x1b[38;2;122;162;247m',
-      accent: '\x1b[38;2;157;122;255m',
-    };
     return kept.map((s, i) => {
-      const isAccent = s.bg === 'accent';
-      const bg = isAccent ? BG.accent : (i % 2 ? BG.a : BG.b);
-      const fg = isAccent ? FG.dark : (FG[s.c] || FG.text);
-      return bg + fg + ' ' + s.t + ' \x1b[0m';
+      const isAccent = s.bgKey === 'accent';
+      const background = isAccent ? pl.bg.accent : (i % 2 ? pl.bg.a : pl.bg.b);
+      const foreground = isAccent ? pl.fg.onAccent : (pl.fg[s.c] || pl.fg.text);
+      return background + foreground + ' ' + s.t + ' ' + RESET;
     }).join('');
   }
   if (process.env.CODEBUDDY_BEAUTIFY_MD === '1') {
     return kept.map((s) => '`' + s.t + '`').join(' ');
   }
-  return kept.map((s) => paint(s.t, s.c)).join(paint(g.sep, 'dim'));
+  return kept.map((s) => paint(s.t, s.c, pal)).join(paint(g.sep, 'dim', pal));
 }
 
 // statusLine 模式：codebuddy 的 Status payload
@@ -356,4 +431,7 @@ if (require.main === module) {
   main().catch(() => { /* 状态栏永不阻塞会话 */ });
 }
 
-module.exports = { buildParts, stateFromPayload, stateFromTranscript, renderStatusBar, scanTranscript, gitInfo, fmtTokens, fmtDuration };
+module.exports = {
+  buildParts, stateFromPayload, stateFromTranscript, renderStatusBar,
+  scanTranscript, gitInfo, fmtTokens, fmtDuration, activeThemeMode,
+};

@@ -37,12 +37,12 @@ function main() {
     if (!before.ok) {
       lines.push(`  主题     跳过：dist 结构不匹配（${before.reason}）`);
     } else if (before.patched && !force) {
-      lines.push('  主题     已应用（跳过，--force 可重打）');
+      lines.push(`  主题     6/6 已应用（跳过，--force 可重打）`);
     } else if (dryRun) {
-      lines.push('  主题     将应用 obsidian 配色（dry-run）');
+      lines.push(`  主题     将应用全主题配色（当前 ${before.patchedCount || 0}/6，dry-run）`);
     } else {
-      const r = applyTheme(dist, undefined, { force });
-      lines.push(`  主题     已应用 obsidian 配色${r.backup ? `（备份 ${path.basename(r.backup)}）` : ''}`);
+      const r = applyTheme(dist, { force });
+      lines.push(`  主题     已应用全主题 obsidian 配色${r.backup ? `（备份 ${path.basename(r.backup)}）` : ''}`);
     }
   }
 
@@ -54,7 +54,8 @@ function main() {
     const backup = settingsFile + '.bak-beautify';
     if (!dryRun) {
       if (fs.existsSync(settingsFile) && !fs.existsSync(backup)) fs.copyFileSync(settingsFile, backup);
-      settings.theme = 'dark';
+      // 不再强制切回 dark；6 个主题都已适配，保留用户当前选择。
+      if (!settings.theme) settings.theme = 'dark';
       settings.statusLine = { type: 'command', command: cmd, padding: 0 };
       if (settings.showTokensCounter === undefined) settings.showTokensCounter = true;
       if (settings.showContextUsage === undefined) settings.showContextUsage = true;

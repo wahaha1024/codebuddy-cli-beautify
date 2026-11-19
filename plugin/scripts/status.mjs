@@ -22,6 +22,9 @@ function main() {
     ['package', pkg],
     ['dist', `${info.ok ? (info.patched ? '已打补丁' : '未打补丁') : '结构不匹配（' + info.reason + '）'} · ${fs.existsSync(dist) ? fs.statSync(dist).size : 0} B`],
     ['备份', info.ok && info.hasBackup ? path.basename(info.backup) : '无'],
+    ['主题配色', info.ok
+      ? `${info.patchedCount}/${info.total}  ` + Object.entries(info.themes).map(([k, v]) => `${k}${v ? '✓' : '✗'}`).join(' ')
+      : '(未检测)'],
     ['theme', settings.theme || '(默认)'],
     ['statusLine', sl.command ? `${sl.command}${sl.padding !== undefined ? '  padding=' + sl.padding : ''}` : '(未配置)'],
     ['settings', settingsPath()],
